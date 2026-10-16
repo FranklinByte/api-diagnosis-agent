@@ -3,6 +3,12 @@ __pycache__
 *.pyc
 .pytest_cache
 .git
+.env
+.env.*
+*.pem
+*.key
+.secrets
+credentials.json
 eval-results
 .mypy_cache
 .ruff_cache

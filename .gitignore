@@ -12,6 +12,10 @@ eval-results/*
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+.secrets/
+credentials.json
 .coverage*
 coverage.xml
 htmlcov/
