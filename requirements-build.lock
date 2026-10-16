@@ -1,6 +1,8 @@
 # Build dependencies for the hatchling backend in pyproject.toml.
 # Keep this file separate from the runtime lock so the image does not treat
 # packaging tools as application dependencies.
+# Hatchling's editable install requires this when build isolation is disabled.
+editables==0.5
 hatchling==1.32.0
 packaging==26.3
 pathspec==1.1.1
