@@ -88,13 +88,21 @@ def test_explicit_loopback_mock_remains_available_and_authority_headers_are_remo
     assert result.status == "success"
 
 
-def test_sensitive_header_forwarding_cannot_be_enabled_for_public_origins():
+def test_sensitive_header_forwarding_cannot_be_enabled_for_public_origins(monkeypatch):
+    # Exercise the credential-forwarding guard independently of the host's DNS.
+    # A reserved example hostname need not resolve on a clean CI runner.
+    monkeypatch.setattr(replay_module, "resolve_host_addresses", lambda *_args: {"93.184.216.34"})
+
+    class RejectNetwork:
+        def open(self, *_args, **_kwargs):
+            raise AssertionError("public-origin credentials must be blocked before any HTTP request")
+
     policy = ReplayPolicy(
         allowed_urls=["https://api.example"],
         allowed_methods={"GET"},
         forward_sensitive_headers=True,
     )
-    result = MockRequestReplayer(policy).replay(
+    result = MockRequestReplayer(policy, opener=RejectNetwork()).replay(
         ReplayRequest(
             url="https://api.example/health",
             method="GET",
@@ -103,6 +111,8 @@ def test_sensitive_header_forwarding_cannot_be_enabled_for_public_origins():
     )
     assert result.status == "blocked"
     assert "local Mock" in (result.error or "")
+    assert result.request_count == 0
+    assert result.sanitized_request_headers["Authorization"] == "[REDACTED]"
 
 
 def test_picklable_blocking_operation_is_terminated_at_total_deadline():
