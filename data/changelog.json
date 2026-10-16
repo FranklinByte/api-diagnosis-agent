@@ -1,0 +1,36 @@
+{
+  "api_name": "weather-mock",
+  "current_version": "v2",
+  "endpoint": {
+    "method": "POST",
+    "path": "/weather/forecast"
+  },
+  "entries": [
+    {
+      "id": "weather-v2-001",
+      "from_version": "v1",
+      "to_version": "v2",
+      "published_at": "2026-08-15",
+      "breaking": true,
+      "summary": "The forecast endpoint now requires the v2 API contract.",
+      "changes": [
+        {
+          "location": "header.X-API-Version",
+          "change": "The accepted version is now v2.",
+          "old": "v1",
+          "new": "v2"
+        },
+        {
+          "location": "request.body",
+          "change": "The v2 request body uses city, units, and days.",
+          "old": "v1 request shape",
+          "new": "{city, units, days}"
+        }
+      ],
+      "migration": "Send X-API-Version: v2 and a JSON body containing city, units, and days.",
+      "affected_endpoints": [
+        "POST /weather/forecast"
+      ]
+    }
+  ]
+}

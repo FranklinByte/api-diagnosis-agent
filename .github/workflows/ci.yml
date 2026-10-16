@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and quality tools
+        run: python -m pip install --upgrade pip && python -m pip install --requirement requirements-dev.lock --requirement requirements-build.lock && python -m pip install --no-build-isolation --no-deps -e .
+      - name: Ruff
+        run: python -m ruff check src tests scripts
+      - name: Mypy
+        run: python -m mypy
+      - name: Tests with coverage
+        run: python -m coverage run -m pytest && python -m coverage combine && python -m coverage report
+      - name: Build Docker image
+        run: docker build --tag api-diagnosis-agent:ci .
+      - name: Docker health and non-root smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name api-diagnosis-agent-ci --publish 18080:8000 api-diagnosis-agent:ci
+          trap 'docker logs api-diagnosis-agent-ci; docker rm --force api-diagnosis-agent-ci' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18080/health > /dev/null
+          test "$(docker inspect --format '{{.Config.User}}' api-diagnosis-agent-ci)" = "app"

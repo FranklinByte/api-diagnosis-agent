@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "api-diagnosis-agent"
+version = "0.2.0"
+description = "Offline-first LangGraph agent for diagnosing controlled third-party API integration failures"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.136,<0.140",
+  "uvicorn[standard]>=0.35,<0.52",
+  "httpx>=0.28,<0.29",
+  "openapi-core>=0.23,<0.24",
+  # 0.9.x requires jsonschema-path >=0.5, while openapi-core 0.23.x
+  # requires jsonschema-path <0.5. Keep the compatible 0.8.x line for V0.
+  "openapi-spec-validator>=0.8.5,<0.9",
+  "langchain-core>=1.2,<2",
+  "langgraph>=1.2,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9,<10",
+  "coverage[toml]>=7.9,<8",
+  "mypy>=1.16,<2",
+  "ruff>=0.12,<0.13",
+]
+llm = [
+  "langchain-openai>=1.1,<2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/api_diagnosis"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+# Keep CI focused on correctness/import hygiene until a formatting-only pass is
+# deliberately scheduled; existing business code is not reformatted here.
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# These imports are retained as public/schema-facing names in the existing
+# boundary modules; do not broaden this exception to the rest of the project.
+"src/api_diagnosis/api.py" = ["F401"]
+"tests/test_retrieval.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/api_diagnosis"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = false
+no_implicit_optional = true
+
+[tool.coverage.run]
+branch = true
+source = ["api_diagnosis"]
+parallel = true
+omit = ["*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]

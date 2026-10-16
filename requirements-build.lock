@@ -1,0 +1,9 @@
+# Build dependencies for the hatchling backend in pyproject.toml.
+# Keep this file separate from the runtime lock so the image does not treat
+# packaging tools as application dependencies.
+hatchling==1.32.0
+packaging==26.3
+pathspec==1.1.1
+pluggy==1.6.0
+tomlkit==0.15.1
+trove-classifiers==2026.6.1.19

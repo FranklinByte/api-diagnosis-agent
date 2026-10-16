@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+eval-results/*
+!eval-results/maintenance-2026-10-16/
+.env
+.env.*
+!.env.example
+.coverage*
+coverage.xml
+htmlcov/

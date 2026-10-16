@@ -1,0 +1,86 @@
+{
+  "created_at": "2026-10-16T06:16:23.831427+00:00",
+  "checks": {
+    "ruff": {
+      "command": [
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "ruff",
+        "check",
+        "src",
+        "tests",
+        "scripts"
+      ],
+      "exit_code": 0
+    },
+    "mypy": {
+      "command": [
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "mypy",
+        "src"
+      ],
+      "exit_code": 0
+    },
+    "dependencies": {
+      "command": [
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "exit_code": 0
+    },
+    "pytest": {
+      "command": [
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "coverage",
+        "run",
+        "-m",
+        "pytest",
+        "--junitxml=D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\eval-results\\maintenance-2026-10-16\\pytest.xml"
+      ],
+      "exit_code": 0
+    },
+    "coverage-combine": {
+      "command": [
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "coverage",
+        "combine",
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\eval-results\\maintenance-2026-10-16"
+      ],
+      "exit_code": 0
+    },
+    "coverage": {
+      "command": [
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "coverage",
+        "report"
+      ],
+      "exit_code": 0
+    },
+    "coverage-json": {
+      "command": [
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\.venv\\Scripts\\python.exe",
+        "-m",
+        "coverage",
+        "json",
+        "-o",
+        "D:\\workEnvironment\\Career\\Rag&AgentCourses\\mainProgram\\2\\api-diagnosis-agent\\eval-results\\maintenance-2026-10-16\\coverage.json"
+      ],
+      "exit_code": 0
+    }
+  },
+  "real_provider": "not_executed",
+  "real_github": "not_executed",
+  "docker": "not_rerun",
+  "cloud_ci": "not_executed",
+  "coverage": {
+    "combined_percent": 82.24674022066199,
+    "branch_percent": 70.90163934426229
+  },
+  "passed": true
+}

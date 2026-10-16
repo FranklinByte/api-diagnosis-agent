@@ -1,0 +1,303 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Weather Mock API",
+    "version": "v2",
+    "description": "A state-free JSON API fixture for deterministic API integration diagnosis."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8001"
+    }
+  ],
+  "paths": {
+    "/weather/forecast": {
+      "post": {
+        "operationId": "forecast",
+        "summary": "Return a deterministic weather forecast",
+        "description": "The only business endpoint in the V0 Mock API. It has no external calls or state changes.",
+        "parameters": [
+          {
+            "name": "X-API-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "v2"
+              ]
+            },
+            "description": "The API contract version. Any value other than v2 produces a 400 version error."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForecastRequest"
+              },
+              "example": {
+                "city": "Shenzhen",
+                "units": "metric",
+                "days": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Forecast returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastResponse"
+                },
+                "example": {
+                  "api_version": "v2",
+                  "city": "Shenzhen",
+                  "units": "metric",
+                  "days": 3,
+                  "forecast": [
+                    {
+                      "day": 1,
+                      "temperature": 24.0,
+                      "condition": "clear"
+                    },
+                    {
+                      "day": 2,
+                      "temperature": 24.5,
+                      "condition": "clear"
+                    },
+                    {
+                      "day": 3,
+                      "temperature": 25.0,
+                      "condition": "clear"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported API version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionError"
+                },
+                "example": {
+                  "detail": {
+                    "code": "API_VERSION_UNSUPPORTED",
+                    "message": "Use the current API version for this endpoint.",
+                    "requested_version": "v1",
+                    "current_version": "v2",
+                    "changelog_id": "weather-v2-001"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown path. This is the standard application-level response for a path outside the OpenAPI contract."
+          },
+          "405": {
+            "description": "Method is not allowed for this path. The forecast path supports POST only."
+          },
+          "422": {
+            "description": "Request body or header validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ForecastRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "city",
+          "units",
+          "days"
+        ],
+        "properties": {
+          "city": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "Shenzhen"
+          },
+          "units": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "imperial"
+            ],
+            "example": "metric"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "example": 3
+          }
+        }
+      },
+      "ForecastDay": {
+        "type": "object",
+        "required": [
+          "day",
+          "temperature",
+          "condition"
+        ],
+        "properties": {
+          "day": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "clear"
+            ]
+          }
+        }
+      },
+      "ForecastResponse": {
+        "type": "object",
+        "required": [
+          "api_version",
+          "city",
+          "units",
+          "days",
+          "forecast"
+        ],
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "enum": [
+              "v2"
+            ]
+          },
+          "city": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "imperial"
+            ]
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "forecast": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ForecastDay"
+            }
+          }
+        }
+      },
+      "VersionError": {
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "properties": {
+          "detail": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "requested_version",
+              "current_version",
+              "changelog_id"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "API_VERSION_UNSUPPORTED"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "requested_version": {
+                "type": "string"
+              },
+              "current_version": {
+                "type": "string",
+                "enum": [
+                  "v2"
+                ]
+              },
+              "changelog_id": {
+                "type": "string",
+                "enum": [
+                  "weather-v2-001"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "properties": {
+          "loc": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "msg": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "HTTPValidationError": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            }
+          }
+        }
+      }
+    }
+  }
+}
