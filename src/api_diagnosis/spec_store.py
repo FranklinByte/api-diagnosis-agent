@@ -64,7 +64,8 @@ def parse_document(text: str) -> dict[str, Any]:
         document = json.loads(text)
     except json.JSONDecodeError:
         try:
-            import yaml
+            # PyYAML ships no type stubs and the locked CI environment does not add them.
+            import yaml  # type: ignore[import-untyped,unused-ignore]
 
             document = yaml.safe_load(text)
         except Exception as exc:  # yaml.YAMLError or a missing optional import
