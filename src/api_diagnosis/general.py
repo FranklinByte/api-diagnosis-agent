@@ -356,16 +356,19 @@ _SYSTEM_PROMPT = """你是 API 对接故障诊断助手。输入是一个 JSON�
 def _corrected_request(original: ApiRequest, value: Any) -> Optional[ApiRequest]:
     if not isinstance(value, Mapping) or not value.get("method") or not value.get("path"):
         return None
-    headers = value.get("headers") if isinstance(value.get("headers"), Mapping) else {}
-    query = value.get("query_params") if isinstance(value.get("query_params"), Mapping) else {}
+    raw_headers, raw_query = value.get("headers"), value.get("query_params")
+    headers: Mapping[Any, Any] = raw_headers if isinstance(raw_headers, Mapping) else {}
+    query: Mapping[Any, Any] = raw_query if isinstance(raw_query, Mapping) else {}
     try:
-        return ApiRequest(
-            request_id=original.request_id,
-            method=str(value["method"]),
-            path=str(value["path"]),
-            headers={str(key): str(item) for key, item in headers.items()},
-            query_params=dict(query),
-            body=value.get("body"),
+        return ApiRequest.model_validate(
+            {
+                "request_id": original.request_id,
+                "method": str(value["method"]),
+                "path": str(value["path"]),
+                "headers": {str(key): str(item) for key, item in headers.items()},
+                "query_params": {str(key): item for key, item in query.items()},
+                "body": value.get("body"),
+            }
         )
     except ValueError:
         return None

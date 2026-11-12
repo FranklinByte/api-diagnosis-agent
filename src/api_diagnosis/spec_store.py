@@ -115,7 +115,8 @@ def list_operations(document: Mapping[str, Any]) -> list[dict[str, str]]:
 
 
 def _info(spec_id: str, document: Mapping[str, Any], *, kind: str, name: Optional[str] = None, uploaded_at: Optional[str] = None) -> dict[str, Any]:
-    meta = document.get("info") if isinstance(document.get("info"), Mapping) else {}
+    raw_meta = document.get("info")
+    meta: Mapping[str, Any] = raw_meta if isinstance(raw_meta, Mapping) else {}
     servers = document.get("servers") or []
     return {
         "spec_id": spec_id,
@@ -137,9 +138,10 @@ def save_spec(text: str, name: Optional[str] = None) -> dict[str, Any]:
     canonical = json.dumps(document, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     spec_id = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
     uploaded_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    clean_name = (name or "").strip()[:80] or None
     record = {
         "spec_id": spec_id,
-        "name": (name or "").strip()[:80] or None,
+        "name": clean_name,
         "uploaded_at": uploaded_at,
         "document": document,
     }
@@ -149,7 +151,7 @@ def save_spec(text: str, name: Optional[str] = None) -> dict[str, Any]:
     staging = directory / f"{spec_id}.tmp"
     staging.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
     staging.replace(target)
-    return _info(spec_id, document, kind="uploaded", name=record["name"], uploaded_at=uploaded_at)
+    return _info(spec_id, document, kind="uploaded", name=clean_name, uploaded_at=uploaded_at)
 
 
 def _example_documents() -> dict[str, dict[str, Any]]:
