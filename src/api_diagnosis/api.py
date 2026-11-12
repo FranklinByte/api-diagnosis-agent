@@ -6,7 +6,10 @@ import os
 import uuid
 from typing import Any, Literal, Optional
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .agent import (
@@ -17,8 +20,11 @@ from .agent import (
 )
 from .diagnosis import diagnose_v0
 from .evaluator import run_benchmark
+from .general import run_general_diagnosis
+from .llm import load_config, load_dotenv
 from .models import ApiRequest, DiagnosisResult
 from .security import sanitize_payload
+from .spec_store import BUILTIN_SPEC_ID, MAX_SPEC_BYTES, SpecError, list_operations, list_specs, load_spec, save_spec
 from .trace import TraceRecorder
 
 
@@ -51,6 +57,34 @@ class DiagnoseResponse(BaseModel):
     thread_id: str
     pending_approval: Optional[dict[str, Any]] = None
 
+
+class SpecUpload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(..., min_length=1, max_length=MAX_SPEC_BYTES)
+    name: Optional[str] = Field(default=None, max_length=80)
+
+
+class GeneralDiagnoseEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    spec_id: str = Field(default=BUILTIN_SPEC_ID, min_length=1, max_length=64)
+    request: ApiRequest
+    explain: bool = True
+
+
+class GeneralDiagnoseResponse(BaseModel):
+    report: DiagnosisResult
+    label: Optional[str] = None
+    spec: dict[str, Any]
+    findings: list[dict[str, Any]]
+    similar_paths: list[str]
+    explanation: Optional[dict[str, Any]] = None
+
+
+# Model credentials may be kept in a local, git-ignored ``.env`` file.
+load_dotenv()
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(
     title="Third-Party API Diagnosis Agent",
@@ -156,6 +190,60 @@ def _pending_report(request_id: str) -> DiagnosisResult:
     )
 
 
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(_STATIC_DIR / "index.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/v1/status")
+def status() -> dict[str, Any]:
+    """Whether a real model is configured; the key itself is never returned."""
+
+    config = load_config()
+    return {"model_configured": config is not None, "model": config.model if config else None}
+
+
+@app.get("/specs")
+def specs() -> list[dict[str, Any]]:
+    return list_specs()
+
+
+@app.post("/specs", status_code=201)
+def upload_spec(payload: SpecUpload) -> dict[str, Any]:
+    """Register one OpenAPI 3.x document (JSON or YAML text)."""
+
+    try:
+        return save_spec(payload.content, payload.name)
+    except SpecError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/specs/{spec_id}/operations")
+def spec_operations(spec_id: str) -> list[dict[str, str]]:
+    try:
+        return list_operations(load_spec(spec_id)[1])
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="unknown spec_id") from exc
+
+
+@app.post("/v1/diagnose", response_model=GeneralDiagnoseResponse)
+def diagnose_general(payload: GeneralDiagnoseEnvelope) -> GeneralDiagnoseResponse:
+    """Diagnose one request against any registered OpenAPI document.
+
+    The fault label comes from deterministic contract checks.  When a model is
+    configured it writes the explanation and a corrected request, and that
+    corrected request is validated against the document before it is returned.
+    """
+
+    try:
+        result = run_general_diagnosis(payload.spec_id, payload.request, with_explanation=payload.explain)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="unknown spec_id") from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="invalid diagnosis request") from exc
+    return GeneralDiagnoseResponse(**result)
+
+
 @app.post("/evaluate")
 def evaluate() -> dict[str, Any]:
     """Run the offline benchmark; no external model call is made."""
@@ -164,6 +252,9 @@ def evaluate() -> dict[str, Any]:
 
 
 __all__ = [
+    "GeneralDiagnoseEnvelope",
+    "GeneralDiagnoseResponse",
+    "SpecUpload",
     "DiagnoseEnvelope",
     "DiagnoseResponse",
     "ResumeEnvelope",

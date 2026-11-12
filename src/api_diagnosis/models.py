@@ -43,6 +43,9 @@ class FaultCategory(str, Enum):
     FIELD_TYPE_ERROR = "field_type_error"
     UNKNOWN_FIELD = "unknown_field"
     ENUM_INVALID = "enum_invalid"
+    # Range, length, pattern and similar limits; produced by the general
+    # (any OpenAPI document) path only.
+    CONSTRAINT_VIOLATION = "constraint_violation"
     METHOD_ERROR = "method_error"
     PATH_ERROR = "path_error"
     CONTENT_TYPE_ERROR = "content_type_error"

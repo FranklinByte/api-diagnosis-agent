@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API 故障诊断助手</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c2330; --muted:#667085; --line:#e3e6ec; --accent:#2f6fed; --ok:#12805c; --okbg:#e6f6ef; --warn:#b54708; --warnbg:#fff3e0; --bad:#c0362c; --badbg:#fdecea; --code:#f2f4f7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12151b; --card:#1b2029; --text:#e6e9ef; --muted:#98a2b3; --line:#2c3340; --accent:#6b9bff; --ok:#4cc79a; --okbg:#143327; --warn:#f0a35e; --warnbg:#3a2a16; --bad:#f08b83; --badbg:#3a1c1a; --code:#141820; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+  header { padding:20px 16px 8px; max-width:1180px; margin:0 auto; display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; justify-content:space-between; }
+  h1 { font-size:22px; margin:0; }
+  header p { margin:4px 0 0; color:var(--muted); font-size:14px; }
+  main { max-width:1180px; margin:0 auto; padding:8px 16px 48px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+  @media (max-width: 900px) { main { grid-template-columns:minmax(0,1fr); } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  h2 { font-size:16px; margin:0 0 10px; }
+  h3 { font-size:14px; margin:16px 0 6px; color:var(--muted); font-weight:600; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, select, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); font:inherit; }
+  textarea { font:13px/1.5 ui-monospace,Consolas,monospace; min-height:84px; resize:vertical; }
+  .row { display:grid; grid-template-columns:120px minmax(0,1fr); gap:8px; }
+  button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .chips button { padding:3px 10px; font-size:13px; border-radius:999px; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:13px; font-weight:600; }
+  .ok { color:var(--ok); background:var(--okbg); } .warn { color:var(--warn); background:var(--warnbg); } .bad { color:var(--bad); background:var(--badbg); }
+  .muted { color:var(--muted); font-size:13px; }
+  pre { background:var(--code); border-radius:8px; padding:10px; overflow-x:auto; font:13px/1.5 ui-monospace,Consolas,monospace; margin:6px 0; white-space:pre-wrap; word-break:break-word; }
+  ul, ol { margin:4px 0; padding-left:22px; }
+  li { margin:3px 0; }
+  .headline { font-size:17px; font-weight:600; margin:8px 0; }
+  details { margin-top:8px; } summary { cursor:pointer; color:var(--accent); font-size:14px; }
+  .err { color:var(--bad); font-size:14px; margin-top:8px; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>API 故障诊断助手</h1>
+    <p>选一份接口文档，贴上调用失败的请求，由校验工具找出不符合文档的地方，再由模型写出原因和改法。</p>
+  </div>
+  <span id="modelBadge" class="badge warn">正在检查模型…</span>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>1. 接口文档</h2>
+      <select id="spec"></select>
+      <div id="specInfo" class="muted" style="margin-top:6px"></div>
+      <div id="ops" class="chips"></div>
+      <details>
+        <summary>上传自己的接口文档（OpenAPI 3.x，JSON 或 YAML）</summary>
+        <label>文档名称（可不填）</label>
+        <input id="specName" maxlength="80" placeholder="例如：支付平台接口">
+        <label>选择文件，或把内容粘贴到下面</label>
+        <input id="specFile" type="file" accept=".json,.yaml,.yml,application/json">
+        <textarea id="specText" placeholder="openapi: 3.0.3 ..." style="margin-top:6px;min-height:110px"></textarea>
+        <div style="margin-top:8px"><button id="uploadBtn">上传并校验</button></div>
+        <div id="uploadMsg" class="err"></div>
+      </details>
+    </section>
+    <section style="margin-top:16px">
+      <h2>2. 调用失败的请求</h2>
+      <div id="examples" class="chips"></div>
+      <div class="row" style="margin-top:10px">
+        <select id="method"><option>GET</option><option selected>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select>
+        <input id="path" placeholder="/orders/ORD-20261113 或完整网址">
+      </div>
+      <label>请求头（JSON；密钥可以写成 Bearer ***）</label>
+      <textarea id="headers">{}</textarea>
+      <label>请求体（JSON，没有就留空）</label>
+      <textarea id="body" style="min-height:130px"></textarea>
+      <div class="row" style="grid-template-columns:140px minmax(0,1fr)">
+        <div><label>返回的状态码</label><input id="status" inputmode="numeric" placeholder="如 400"></div>
+        <div><label>报错信息（可不填）</label><input id="errorMessage" placeholder="如 Read timed out"></div>
+      </div>
+      <label>返回的内容（JSON 或文本，可不填）</label>
+      <textarea id="responseBody"></textarea>
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button id="run" class="primary">开始诊断</button>
+        <label style="margin:0;display:flex;gap:6px;align-items:center"><input id="explain" type="checkbox" checked style="width:auto">让模型写原因和改法</label>
+      </div>
+      <div id="formMsg" class="err"></div>
+    </section>
+  </div>
+  <section id="result">
+    <h2>诊断结果</h2>
+    <p class="muted">还没有结果。左边选好文档、填好请求后点"开始诊断"。</p>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const el = (tag, text, cls) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (cls) node.className = cls; return node; };
+const goodOrder = { items: [{ sku: "A1", quantity: 2 }], currency: "CNY", address: { receiver: "张三", phone: "13800000000", province: "浙江", city: "杭州", detail: "示例路1号" } };
+const orderHeaders = { Authorization: "Bearer ***", "Idempotency-Key": "k-12345678" };
+const EXAMPLES = {
+  "weather-mock": [
+    { name: "缺少必填字段", method: "POST", path: "/weather/forecast", headers: { "X-API-Version": "v2" }, body: { units: "metric" }, status: 400 },
+    { name: "取值不允许", method: "POST", path: "/weather/forecast", headers: { "X-API-Version": "v2" }, body: { city: "Singapore", units: "kelvin" }, status: 400 },
+    { name: "用了旧版本", method: "POST", path: "/weather/forecast", headers: { "X-API-Version": "v1" }, body: { city: "Singapore" }, status: 400 }
+  ],
+  "example-shop-orders": [
+    { name: "币种写错 + 地址不全", method: "POST", path: "/orders", headers: orderHeaders, body: { ...goodOrder, currency: "RMB", address: { receiver: "张三", phone: "13800000000" } }, status: 400 },
+    { name: "数量传成了文字", method: "POST", path: "/orders", headers: orderHeaders, body: { ...goodOrder, items: [{ sku: "A1", quantity: "2" }] }, status: 400 },
+    { name: "订单号格式不对", method: "GET", path: "/orders/12345", headers: orderHeaders, status: 404 },
+    { name: "地址写成单数", method: "GET", path: "/order/ORD-20261113", headers: orderHeaders, status: 404 },
+    { name: "请求没问题但库存不足", method: "POST", path: "/orders", headers: orderHeaders, body: goodOrder, status: 409, response: { error: "OUT_OF_STOCK", sku: "A1", available: 0 } }
+  ]
+};
+let specs = [];
+
+async function api(url, options) {
+  const response = await fetch(url, options);
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data && data.detail ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : "请求失败（" + response.status + "）");
+  return data;
+}
+
+async function loadSpecs(selectId) {
+  specs = await api("/specs");
+  const select = $("spec");
+  select.replaceChildren(...specs.map(item => {
+    const option = el("option", item.name + (item.kind === "builtin" ? "（内置）" : item.kind === "example" ? "（示例）" : "（已上传）"));
+    option.value = item.spec_id; return option;
+  }));
+  if (selectId) select.value = selectId;
+  await onSpecChange();
+}
+
+async function onSpecChange() {
+  const item = specs.find(entry => entry.spec_id === $("spec").value);
+  if (!item) return;
+  $("specInfo").textContent = "版本 " + (item.version || "未注明") + "，共 " + item.operation_count + " 个接口" + (item.server ? "，服务地址 " + item.server : "");
+  const operations = await api("/specs/" + encodeURIComponent(item.spec_id) + "/operations");
+  $("ops").replaceChildren(...operations.slice(0, 30).map(operation => {
+    const button = el("button", operation.method + " " + operation.path);
+    button.title = operation.summary || "";
+    button.onclick = () => { $("method").value = operation.method; $("path").value = operation.path; };
+    return button;
+  }));
+  const examples = EXAMPLES[item.spec_id] || [];
+  $("examples").replaceChildren(...(examples.length ? [el("span", "填入示例：", "muted")] : []), ...examples.map(example => {
+    const button = el("button", example.name);
+    button.onclick = () => {
+      $("method").value = example.method; $("path").value = example.path;
+      $("headers").value = JSON.stringify(example.headers || {}, null, 2);
+      $("body").value = example.body === undefined ? "" : JSON.stringify(example.body, null, 2);
+      $("status").value = example.status || ""; $("errorMessage").value = "";
+      $("responseBody").value = example.response ? JSON.stringify(example.response, null, 2) : "";
+    };
+    return button;
+  }));
+}
+
+function parseJson(text, name, fallback) {
+  const trimmed = text.trim();
+  if (!trimmed) return fallback;
+  try { return JSON.parse(trimmed); } catch (error) { throw new Error(name + "不是合法的 JSON：" + error.message); }
+}
+
+async function run() {
+  $("formMsg").textContent = "";
+  let payload;
+  try {
+    const headers = parseJson($("headers").value, "请求头", {});
+    if (typeof headers !== "object" || Array.isArray(headers)) throw new Error("请求头必须是一个 JSON 对象。");
+    const request = { method: $("method").value, path: $("path").value.trim(), headers: Object.fromEntries(Object.entries(headers).map(([key, value]) => [key, String(value)])) };
+    if (!request.path) throw new Error("请填写接口地址。");
+    const body = parseJson($("body").value, "请求体", undefined);
+    if (body !== undefined) request.body = body;
+    if ($("status").value.trim()) {
+      const status = Number($("status").value.trim());
+      if (!Number.isInteger(status) || status < 100 || status > 599) throw new Error("状态码应是 100 到 599 之间的整数。");
+      request.status_code = status;
+    }
+    if ($("errorMessage").value.trim()) request.error_message = $("errorMessage").value.trim();
+    const responseText = $("responseBody").value.trim();
+    if (responseText) { try { request.response_body = JSON.parse(responseText); } catch (error) { request.response_body = responseText; } }
+    payload = { spec_id: $("spec").value, request, explain: $("explain").checked };
+  } catch (error) { $("formMsg").textContent = error.message; return; }
+  const button = $("run"); button.disabled = true; button.textContent = "诊断中…";
+  try { render(await api("/v1/diagnose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })); }
+  catch (error) { $("formMsg").textContent = error.message; }
+  finally { button.disabled = false; button.textContent = "开始诊断"; }
+}
+
+function list(tag, items) { const node = el(tag); items.forEach(item => node.append(el("li", item))); return node; }
+
+function render(data) {
+  const box = $("result"); const report = data.report; const explanation = data.explanation;
+  box.replaceChildren(el("h2", "诊断结果"));
+  let badge;
+  if (report.status === "confirmed" && !report.fault_category) badge = el("span", "未发现不符合文档的地方", "badge ok");
+  else if (report.status === "confirmed") badge = el("span", "工具已确认", "badge bad");
+  else badge = el("span", "待验证：工具无法确认原因", "badge warn");
+  box.append(badge);
+  box.append(el("div", (explanation && explanation.summary) || data.label || report.root_cause || "", "headline"));
+  box.append(el("div", "对照的接口：" + (data.spec.matched_path ? data.spec.method + " " + data.spec.matched_path : "文档里没有匹配的地址") + "（" + data.spec.name + "）", "muted"));
+  if (data.similar_paths.length) box.append(el("div", "文档里相近的地址：" + data.similar_paths.join("、"), "muted"));
+  if (data.findings.length) {
+    box.append(el("h3", "校验工具发现的问题（" + data.findings.length + " 处）"));
+    box.append(list("ul", data.findings.map(item => item.label + (item.pointer ? "，位置 " + item.pointer : "") + "：" + item.message)));
+  }
+  if (explanation) {
+    box.append(el("h3", explanation.source === "model" ? "原因说明（由模型 " + explanation.model + " 生成）" : "原因说明（固定模板" + (explanation.fallback_reason === "model_not_configured" ? "，未配置模型" : "，模型调用失败") + "）"));
+    box.append(el("div", explanation.cause));
+    if (explanation.fix_steps.length) { box.append(el("h3", "怎么改")); box.append(list("ol", explanation.fix_steps)); }
+    if (explanation.corrected_request) {
+      box.append(el("h3", "修正后的请求"));
+      box.append(explanation.corrected_request_verified ? el("span", "已重新对照文档校验，通过", "badge ok") : el("span", "重新校验未通过，请人工核对", "badge warn"));
+      box.append(el("pre", JSON.stringify(explanation.corrected_request, null, 2)));
+    }
+    if (explanation.guesses.length) { box.append(el("h3", "推测（未经工具确认）")); box.append(list("ul", explanation.guesses)); }
+  }
+  const details = el("details"); details.append(el("summary", "查看检查过程"));
+  details.append(list("ul", report.verification_steps.map(step => (step.status === "passed" ? "通过" : step.status === "failed" ? "未通过" : step.status) + "｜" + step.action + "：" + step.summary)));
+  if (explanation && explanation.source === "model") details.append(el("div", "模型调用 " + explanation.rounds + " 轮，共 " + (explanation.usage.total_tokens || 0) + " tokens", "muted"));
+  box.append(details);
+}
+
+async function upload() {
+  $("uploadMsg").textContent = "";
+  let content = $("specText").value;
+  const file = $("specFile").files[0];
+  if (file) content = await file.text();
+  if (!content.trim()) { $("uploadMsg").textContent = "请选择文件或粘贴文档内容。"; return; }
+  try {
+    const saved = await api("/specs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, name: $("specName").value.trim() || null }) });
+    $("specText").value = ""; $("specFile").value = "";
+    await loadSpecs(saved.spec_id);
+    $("uploadMsg").className = "muted"; $("uploadMsg").textContent = "已上传：" + saved.name + "，共 " + saved.operation_count + " 个接口。";
+  } catch (error) { $("uploadMsg").className = "err"; $("uploadMsg").textContent = error.message; }
+}
+
+$("spec").onchange = onSpecChange; $("run").onclick = run; $("uploadBtn").onclick = upload;
+api("/v1/status").then(status => {
+  const badge = $("modelBadge");
+  badge.textContent = status.model_configured ? "模型已接入：" + status.model : "未配置模型，只给出工具结论";
+  badge.className = "badge " + (status.model_configured ? "ok" : "warn");
+}).catch(() => {});
+loadSpecs("example-shop-orders").catch(error => { $("formMsg").textContent = error.message; });
+</script>
+</body>
+</html>

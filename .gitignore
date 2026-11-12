@@ -9,6 +9,7 @@ build/
 *.egg-info/
 eval-results/*
 !eval-results/maintenance-2026-10-16/
+!eval-results/general-2026-11-13/
 .env
 .env.*
 !.env.example
@@ -19,3 +20,6 @@ credentials.json
 .coverage*
 coverage.xml
 htmlcov/
+
+# User-uploaded OpenAPI documents
+data/specs/

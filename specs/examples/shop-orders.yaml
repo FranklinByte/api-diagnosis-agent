@@ -1,0 +1,210 @@
+openapi: 3.0.3
+info:
+  title: 商城订单服务
+  version: "1.4.0"
+  description: 示例文档，用来演示对任意 OpenAPI 文档的诊断；与内置的天气 Mock 无关。
+servers:
+  - url: https://api.shop.example.com/v1
+security:
+  - bearerAuth: []
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      summary: 按条件查询订单列表
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, paid, shipped, cancelled]
+          description: 订单状态
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: 订单列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Order"
+                  total:
+                    type: integer
+    post:
+      operationId: createOrder
+      summary: 创建订单
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 8
+          description: 幂等键，同一个键重复提交只会创建一个订单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: 请求参数不合法
+        "409":
+          description: 库存不足或幂等键冲突
+  /orders/{order_id}:
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^ORD-[0-9]{8}$"
+        description: 订单号，形如 ORD-20261113
+    get:
+      operationId: getOrder
+      summary: 查询单个订单
+      responses:
+        "200":
+          description: 订单详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: 订单不存在
+  /orders/{order_id}/cancel:
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^ORD-[0-9]{8}$"
+    post:
+      operationId: cancelOrder
+      summary: 取消订单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  enum: [changed_mind, wrong_item, duplicate, other]
+                note:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: 已取消
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "409":
+          description: 订单已发货，不能取消
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    OrderItem:
+      type: object
+      additionalProperties: false
+      required: [sku, quantity]
+      properties:
+        sku:
+          type: string
+          description: 商品编码
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    Address:
+      type: object
+      additionalProperties: false
+      required: [receiver, phone, province, city, detail]
+      properties:
+        receiver:
+          type: string
+        phone:
+          type: string
+          pattern: "^1[0-9]{10}$"
+        province:
+          type: string
+        city:
+          type: string
+        detail:
+          type: string
+    CreateOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [items, currency, address]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        currency:
+          type: string
+          enum: [CNY, USD]
+        address:
+          $ref: "#/components/schemas/Address"
+        coupon_code:
+          type: string
+        remark:
+          type: string
+          maxLength: 200
+    Order:
+      type: object
+      required: [order_id, status, total_amount, currency, items]
+      properties:
+        order_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, paid, shipped, cancelled]
+        total_amount:
+          type: number
+        currency:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        created_at:
+          type: string
+          format: date-time

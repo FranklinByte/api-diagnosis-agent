@@ -113,6 +113,8 @@ def diagnose_v0(
     spec: Any = DEFAULT_SPEC_PATH,
     changelog_path: Optional[str | Path] = None,
     current_version: str = "v2",
+    version_check: bool = True,
+    path_template: Optional[str] = None,
 ) -> DiagnosisResult:
     """Run the fixed V0 checks and return a deterministic diagnosis report.
 
@@ -137,7 +139,9 @@ def diagnose_v0(
     if updates:
         model = model.model_copy(update=updates)
     paths = document.get("paths", {})
-    path_item = paths.get(model.path)
+    # ``path_template`` lets a caller that already matched a templated path
+    # (for example ``/orders/{order_id}``) reuse the fixed checks below.
+    path_item = paths.get(path_template or model.path)
     source = str(spec) if isinstance(spec, (str, Path)) else "openapi_spec"
     steps: list[VerificationStep] = []
     evidence: list[Evidence] = [
@@ -222,7 +226,7 @@ def diagnose_v0(
     )
 
     requested_version = model.api_version or _header(model.headers, "x-api-version")
-    if requested_version:
+    if requested_version and version_check:
         checker = VersionChecker(changelog_path) if changelog_path else VersionChecker()
         version_result = checker.check(
             requested_version=requested_version,
